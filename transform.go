@@ -17,7 +17,9 @@ package imageproxy
 import (
 	"bytes"
 	"image"
-	_ "image/gif" // register gif format
+	"image/color"
+	"image/draw"
+	_ "image/gif"
 	"image/jpeg"
 	"image/png"
 
@@ -129,6 +131,23 @@ func transformImage(m image.Image, opt Options) image.Image {
 			if w == 0 || h == 0 {
 				m = imaging.Resize(m, w, h, resampleFilter)
 			} else {
+				// Try to padding instead of crop
+				imgW := m.Bounds().Max.X - m.Bounds().Min.X
+				imgH := m.Bounds().Max.Y - m.Bounds().Min.Y
+				orgRatio := float64(imgW)/float64(imgH)
+				targetRatio := float64(w)/float64(h)
+				if targetRatio > orgRatio { // output image has more width
+					// then padding to width
+					imgW = int(float64(imgH) * targetRatio)
+				} else if targetRatio < orgRatio { // output image has more height
+					// then padding to height
+					imgH = int(float64(imgW) / targetRatio)
+				}
+				// create new white background
+				background := image.NewRGBA(image.Rect(0, 0, imgW, imgH))
+				white := color.RGBA{255, 255, 255, 255}
+				draw.Draw(background, background.Bounds(), &image.Uniform{white}, image.ZP, draw.Src)
+				m = imaging.PasteCenter(background, m)
 				m = imaging.Thumbnail(m, w, h, resampleFilter)
 			}
 		}
