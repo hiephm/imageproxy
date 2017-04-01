@@ -27,6 +27,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -101,6 +103,26 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/health-check" {
 		fmt.Fprint(w, "OK")
+		return
+	}
+
+	if strings.HasPrefix(r.URL.Path, "/color") {
+		reg, _ := regexp.Compile(`/color/([0-9A-Fa-f]{6})/(\d+)`)
+		matches := reg.FindStringSubmatch(r.URL.Path)
+		if len(matches) < 3 {
+			return
+		}
+		size, _ := strconv.Atoi(matches[2])
+		img, err := generateSolidColorRec(matches[1], size, size)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(img)))
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+		w.Write(img)
 		return
 	}
 
